@@ -6,26 +6,44 @@ module Estella
 
     def initialize(params)
       @params = params
+
       @query = {
-        _source: false,
-        query: {},
-        filter: {
-          bool: { must: [], must_not: [] }
-        },
-        aggregations: {}
+        _source: false
       }
+
       add_query
+      add_field_boost
       add_filters
       add_excludes
       add_pagination
     end
 
     def must(filter)
-      query[:filter][:bool][:must] << filter
+      @query = {
+        query: {
+          filtered: {
+            query: {
+              bool: {
+                must: [ filter ]
+              }
+            }
+          }
+        }
+      }.merge(query)
     end
 
     def exclude(filter)
-      query[:filter][:bool][:must_not] << filter
+      @query = {
+        query: {
+          filtered: {
+            query: {
+              bool: {
+                must_not: [ filter ]
+              }
+            }
+          }
+        }
+      }.merge(query)
     end
 
     def query_definition
@@ -51,21 +69,25 @@ module Estella
 
     def add_query
       if params[:term] && params[:indexed_fields]
-        add_term_query
+        # fulltext search across all string fields
+        @query = {
+          query: {
+            function_score: {
+              query: query_definition
+            }
+          }
+        }.merge(query)
       else
-        query[:query] = { match_all: {} }
+        @query = {
+          query: {
+            filtered: {
+              query: {
+                match_all: {}
+              }
+            }
+          }
+        }.merge(query)
       end
-    end
-
-    # fulltext search across all string fields
-    def add_term_query
-      query[:query] = {
-        function_score: {
-          query: query_definition
-        }
-      }
-
-      add_field_boost
     end
 
     def add_field_boost
@@ -103,7 +125,7 @@ module Estella
       return unless indexed_fields
       indexed_fields.each do |field, opts|
         next unless opts[:filter] && params[field]
-        must term: { field => params[field] }
+        must(term: { field => params[field] })
       end
     end
 
