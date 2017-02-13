@@ -40,12 +40,18 @@ module Estella
 
       def self.estella_query(params = {})
         params.merge!(field_boost)
-        params.merge!(indexed_fields: indexed_fields)
-        estella_search_query.new(params).query
+        params[:indexed_fields] = indexed_fields
+        query_klass = estella_search_query
+        query_klass ||= if params[:term]
+                          Estella::Queries::TermQuery
+                        else
+                          Estella::Queries::MatchAllQuery
+                        end
+        query_klass.new(params).query
       end
 
       def self.estella_search_query
-        Estella::Query
+        nil
       end
     end
 
@@ -59,7 +65,7 @@ module Estella
       # indexes slug attribute by default
       def index_slug
         if defined? slug
-          indexed_fields.merge!(slug: { type: :string, index: :not_analyzed })
+          indexed_fields[:slug] = { type: :string, index: :not_analyzed }
           indexed_json.merge!(slug: :slug)
         end
       end

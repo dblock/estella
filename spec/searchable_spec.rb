@@ -110,7 +110,7 @@ describe Estella::Searchable, type: :model do
     end
     context 'with query customization' do
       before do
-        class CustomQuery < Estella::Query
+        class CustomQuery < Estella::Queries::TermQuery
           def initialize(params)
             super
             exclude term: { keywords: 'jez' }
